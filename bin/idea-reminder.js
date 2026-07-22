@@ -163,7 +163,7 @@ function main() {
       const counts = {};
       for (const e of Object.values(state.sessions)) counts[e.status] = (counts[e.status] || 0) + 1;
       process.stdout.write(
-        `config:      ${cfg.configPath}\n` +
+        `config:      ${cfg.configLayers.length ? cfg.configLayers.join('  +  ') : '(defaults)'}\n` +
         `projectsDir: ${cfg.projectsDir}\n` +
         `state:       ${cfg.statePath}\n` +
         `Δt:          ${cfg.deltaIdle}   ·   report T: ${cfg.reportTime}\n` +

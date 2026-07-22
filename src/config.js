@@ -49,16 +49,33 @@ function deepMerge(base, over) {
   return out;
 }
 
+function readJsonIfExists(p) {
+  if (!p || !fs.existsSync(p)) return null;
+  try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
+  catch (e) { throw new Error(`Failed to parse config ${p}: ${e.message}`); }
+}
+
+// Layered config, later layers override earlier ones:
+//   DEFAULTS
+//   <pkg>/config.json          shipped defaults (tracked in git — keep clean)
+//   <pkg>/config.local.json    personal overrides (gitignored)
+//   $IDEA_REMINDER_CONFIG      explicit override file
 function loadConfig() {
-  const configPath = process.env.IDEA_REMINDER_CONFIG || path.join(PKG_ROOT, 'config.json');
-  let user = {};
-  if (fs.existsSync(configPath)) {
-    try { user = JSON.parse(fs.readFileSync(configPath, 'utf8')); }
-    catch (e) { throw new Error(`Failed to parse config ${configPath}: ${e.message}`); }
+  let cfg = DEFAULTS;
+  const layers = [
+    path.join(PKG_ROOT, 'config.json'),
+    path.join(PKG_ROOT, 'config.local.json'),
+    process.env.IDEA_REMINDER_CONFIG,
+  ];
+  const loaded = [];
+  for (const p of layers) {
+    const obj = readJsonIfExists(p);
+    if (obj) { cfg = deepMerge(cfg, obj); loaded.push(p); }
   }
-  const cfg = deepMerge(DEFAULTS, user);
+  cfg = { ...cfg };
   cfg.pkgRoot = PKG_ROOT;
-  cfg.configPath = configPath;
+  cfg.configLayers = loaded;
+  cfg.configPath = loaded[loaded.length - 1] || path.join(PKG_ROOT, 'config.json');
   cfg.projectsDir = cfg.projectsDir || path.join(os.homedir(), '.claude', 'projects');
   cfg.statePath = cfg.statePath || path.join(PKG_ROOT, 'state', 'state.json');
   cfg.deltaIdleMs = parseDurationMs(cfg.deltaIdle);

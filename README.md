@@ -48,6 +48,27 @@ idea-reminder activate <id...>    # bring an archived/dismissed one back
 
 It fires whenever the app is open (or on next launch), then you reply to act on each item. No global skill needed — the task prompt is self-contained.
 
+> The MCP sync step (Cowork + Claude-archive mirroring) only works in the **desktop app**, where the `ccd_session_mgmt` MCP exists. Plain-CLI users still get full Claude Code session tracking — the sync step just skips itself.
+
+### Permissions — avoid daily prompts
+
+Scheduled runs start fresh sessions, so without allow rules **every run pauses on a permission prompt**. Add these to `~/.claude/settings.json` (adjust the repo path):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(node \"<absolute-path-to-repo>/bin/idea-reminder.js\" *)",
+      "PowerShell(node \"<absolute-path-to-repo>/bin/idea-reminder.js\" *)",
+      "Bash(idea-reminder *)",
+      "Read(~/.claude/projects/**)"
+    ]
+  }
+}
+```
+
+Two approvals can't be pre-granted in settings: the MCP `list_sessions` call and the Write of its output file. Those are remembered **per task** — click **Run now** once after creating the task to grant them, and every later run is fully unattended.
+
 *(Alternative: `schtasks /Create /SC DAILY /ST 22:00 /TN idea-reminder /TR "node \"<repo>\bin\idea-reminder.js\" scan --daily --notify"` runs the scan even when Claude is fully closed; you review later with `report`.)*
 
 ### Handoff chains
@@ -74,7 +95,17 @@ Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md`. Then `/idea-
 | `snooze <id> [days=3]` · `note <id> <text>` · `resume-cmd <id>` | Hide for N days · attach a note · print the resume command. |
 | `status` | Show config, paths, chain projects, and counts. |
 
-## Configuration — `config.json`
+## Configuration
+
+Config is layered: `config.json` (shipped defaults — leave it alone) ← **`config.local.json`** (your personal overrides, gitignored — put your `chainMode`, `independentProjects`, `excludeTitles` etc. here; same keys, only what you override) ← `$IDEA_REMINDER_CONFIG` (explicit override file). Example `config.local.json`:
+
+```json
+{
+  "chainMode": "auto",
+  "independentProjects": ["C:\\path\\to\\your\\junk-drawer-folder"],
+  "excludeTitles": ["<your daily task name>"]
+}
+```
 
 | Key | Default | Meaning |
 |---|---|---|

@@ -2,6 +2,9 @@ node_modules/
 state/
 *.log
 
+# personal overrides (keep config.json clean defaults)
+config.local.json
+
 # local-only docs (not published)
 architecture.md
 SHARE.md
