@@ -130,6 +130,7 @@ Config is layered, later wins: `config.json` (shipped defaults — leave it alon
 | `chainMode` | `"list"` | Hand-off chain detection: `"off"`, `"list"` (only `chainProjects`), or `"auto"` (every workspace except `independentProjects`). |
 | `chainProjects` | `[]` | list mode: cwd substrings that are hand-off chains. |
 | `independentProjects` | `[]` | auto mode: exact cwds exempt from chaining (folders of unrelated one-off ideas). |
+| `excludeTitles` | `[]` | Desktop sync: skip sessions with these exact titles. **Add your daily digest task's name here** so its own runs don't get tracked. |
 | `maxDetailedItems` | `8` | How many items shown in full per report. |
 | `weights.neglectStep` · `weights.idleFactorPerDay` | `1.0` · `0.05` | Weight added per skipped report · per idle day. |
 | `minMessages` | `1` | Skip sessions with fewer real messages. |
