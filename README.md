@@ -80,7 +80,9 @@ It fires whenever the app is open (or on next launch), then you reply to act on 
       "Bash(node \"<absolute-path-to-repo>/bin/idea-reminder.js\" *)",
       "PowerShell(node \"<absolute-path-to-repo>/bin/idea-reminder.js\" *)",
       "Bash(idea-reminder *)",
-      "Read(~/.claude/projects/**)"
+      "Read(~/.claude/projects/**)",
+      "Read(~/.claude/idea-reminder/**)",
+      "Edit(~/.claude/idea-reminder/**)"
     ]
   }
 }
