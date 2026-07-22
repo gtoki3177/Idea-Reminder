@@ -1,7 +1,7 @@
 {
   "name": "idea-reminder",
   "displayName": "Idea Reminder",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Resurface neglected Claude conversations as a weighted daily digest — continue, archive, or snooze each one before it rots.",
   "author": {
     "name": "ToiletKing",

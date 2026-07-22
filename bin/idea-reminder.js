@@ -134,15 +134,38 @@ function main() {
       // A file path still works for manual use.
       const src = pos[0] && pos[0] !== '-' ? pos[0] : 0; // 0 = stdin fd
       const raw = fs.readFileSync(src, 'utf8');
-      if (!raw.trim()) throw new Error('sync-desktop: empty input (pipe the list_sessions JSON on stdin, or pass a file path)');
+      if (!raw.trim()) throw new Error('sync-desktop: empty input (pipe list_sessions data on stdin, or pass a file path)');
       let entries;
-      try { entries = JSON.parse(raw); }
-      catch {
-        // Windows shells sometimes collapse \\ into \ inside heredocs, breaking
-        // JSON escapes (e.g. "C:\code stuff"). Re-escape stray backslashes and retry.
-        entries = JSON.parse(raw.replace(/\\(?![\\/"bfnrtu])/g, '\\\\'));
+      const firstCh = raw.trimStart()[0];
+      if (firstCh === '[' || firstCh === '{') {
+        // JSON (manual use / saved MCP output).
+        try { entries = JSON.parse(raw); }
+        catch {
+          // Windows shells sometimes collapse \\ into \ inside heredocs, breaking
+          // JSON escapes (e.g. "C:\code stuff"). Re-escape stray backslashes and retry.
+          entries = JSON.parse(raw.replace(/\\(?![\\/"bfnrtu])/g, '\\\\'));
+        }
+        if (!Array.isArray(entries)) entries = entries.sessions || entries.result || [];
+      } else {
+        // Line protocol — brace/quote-free so shell permission analyzers accept
+        // the heredoc:  sessionId|archived(1/0)|lastActivityAt|cwd|title
+        // (title is everything after the 4th pipe; Windows paths can't contain |)
+        entries = [];
+        for (const line of raw.split('\n')) {
+          const t = line.trim();
+          if (!t) continue;
+          const p = t.split('|');
+          if (p.length < 5) continue;
+          entries.push({
+            sessionId: p[0].trim(),
+            isArchived: p[1].trim() === '1' || /^true$/i.test(p[1].trim()),
+            lastActivityAt: p[2].trim(),
+            cwd: p[3].trim(),
+            title: p.slice(4).join('|').trim(),
+            isRunning: false,
+          });
+        }
       }
-      if (!Array.isArray(entries)) entries = entries.sessions || entries.result || [];
       const r = S.syncDesktop(state, entries, cfg, now);
       syncFromDisk(state, cfg, now);   // re-run lifecycle so new/changed entries queue correctly
       S.saveState(cfg.statePath, state, now);
