@@ -5,7 +5,7 @@ const path = require('path');
 const { loadConfig } = require('../src/config');
 const { listSessionFiles, parseSession } = require('../src/sessions');
 const S = require('../src/state');
-const { buildReport, renderMarkdown } = require('../src/report');
+const { buildReport, renderMarkdown, t } = require('../src/report');
 
 function resolveId(state, arg) {
   if (!arg) throw new Error('missing <id>');
@@ -36,9 +36,10 @@ function mutateStatus(state, id, cmd, now) {
 function notify(cfg, state, now) {
   if (!cfg.notify || !cfg.notify.enabled) return;
   const q = S.queuedItems(state, cfg, now);
+  const s = t(cfg.locale);
   const msg = q.length
-    ? `idea reminder: ${q.length} 個對話待回顧（最高：${(q[0].title || '').slice(0, 40)}）`
-    : 'idea reminder: 佇列清空 🎉';
+    ? s.notifySome(q.length, ((q[0].titleOverride || q[0].title) || '').slice(0, 40))
+    : s.notifyEmpty;
   try {
     if (cfg.notify.ntfyTopicUrl) {
       require('child_process').execFileSync('curl', ['-s', '-d', msg, cfg.notify.ntfyTopicUrl], { stdio: 'ignore' });

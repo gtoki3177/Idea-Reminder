@@ -11,6 +11,7 @@ const USER_DIR = path.join(os.homedir(), '.claude', 'idea-reminder');
 const DEFAULTS = {
   deltaIdle: '3d',            // idle threshold before a session enters the queue
   reportTime: '09:00',        // local time T for the daily report (used by the scheduler)
+  locale: 'en',               // CLI output language: 'en' | 'zh-TW'
   projectsDir: null,          // null -> ~/.claude/projects
   statePath: null,            // null -> <pkg>/state/state.json
   minMessages: 1,             // ignore sessions with fewer real messages than this

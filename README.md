@@ -125,6 +125,7 @@ Config is layered, later wins: `config.json` (shipped defaults — leave it alon
 | Key | Default | Meaning |
 |---|---|---|
 | `deltaIdle` | `"3d"` | Idle threshold Δt before queuing (`"3d"`, `"12h"`, `"90m"`). |
+| `locale` | `"en"` | CLI output language (`"en"` or `"zh-TW"`). Skill-mediated digests follow your conversation language regardless. |
 | `reportTime` | `"09:00"` | Local time T for the daily report (used by the scheduler). |
 | `chainMode` | `"list"` | Hand-off chain detection: `"off"`, `"list"` (only `chainProjects`), or `"auto"` (every workspace except `independentProjects`). |
 | `chainProjects` | `[]` | list mode: cwd substrings that are hand-off chains. |

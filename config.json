@@ -1,6 +1,7 @@
 {
   "deltaIdle": "3d",
   "reportTime": "09:00",
+  "locale": "en",
   "projectsDir": null,
   "statePath": null,
   "minMessages": 1,

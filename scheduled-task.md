@@ -10,11 +10,9 @@ This is the prompt that drives the daily report. You don't create the task by ha
 
 In Claude Code, say something like:
 
-> 每天晚上 10 點建一個排程任務跑 idea reminder，用下面這段 prompt：（貼上下方內容）
-
-or in English:
-
 > Create a daily scheduled task at 10pm that runs the prompt below.
+
+(Any language works — write it in yours, and add e.g. "present the digest in Traditional Chinese" if you want the daily report localized.)
 
 Then paste the prompt. (Assumes `idea-reminder` is on your PATH via `npm link`. If not, replace `idea-reminder` with `node <repo>/bin/idea-reminder.js`.)
 
