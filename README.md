@@ -38,6 +38,8 @@ idea-reminder report                 # your first digest  (or: node bin/idea-rem
 
 ## Usage
 
+**Plugin install?** Just invoke **`/idea-reminder:review`** (or ask in plain words) — it runs everything below for you, interactively, and executes your decisions. The CLI commands in this section are what the skill runs under the hood; run them directly only on a git-clone install.
+
 ### The daily digest
 
 `idea-reminder report` prints the queue, highest weight first, each with its title, project, idle days, how many times you've skipped it, and the last thing you were doing. Then you act on each (an 8-char id prefix is enough):
@@ -61,13 +63,15 @@ idea-reminder activate <id...>    # bring an archived/dismissed one back
   > Create a daily scheduled task at 10pm whose prompt is: "Invoke the idea-reminder:review skill and follow it through — sync, digest, then ask me what to do with each item."
 - **Git-clone install:** paste the full prompt from [`scheduled-task.md`](scheduled-task.md) instead.
 
-It fires whenever the app is open (or on next launch), then you reply to act on each item. No global skill needed — the task prompt is self-contained.
+It fires whenever the app is open (or on next launch), then you reply to act on each item. (The git-clone prompt is fully self-contained — it doesn't need any skill installed.)
 
 > The MCP sync step (Cowork + Claude-archive mirroring) only works in the **desktop app**, where the `ccd_session_mgmt` MCP exists. Plain-CLI users still get full Claude Code session tracking — the sync step just skips itself.
 
 ### Permissions — avoid daily prompts
 
-Scheduled runs start fresh sessions, so without allow rules **every run pauses on a permission prompt**. Add these to `~/.claude/settings.json` (adjust the repo path):
+**Plugin installs: nothing to configure.** Approve the first run's prompts (pick "always allow", or click **Run now** once on the scheduled task — approvals are remembered per task). A plugin update changes the CLI's cache path, so you may be asked once more after updating.
+
+**Git-clone installs** running unattended should pre-allow the CLI instead. Add these to `~/.claude/settings.json` (adjust the repo path):
 
 ```json
 {
