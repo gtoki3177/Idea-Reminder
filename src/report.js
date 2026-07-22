@@ -38,7 +38,7 @@ function toItem(entry, now) {
   };
 }
 
-function buildReport(state, cfg, now, queued) {
+function buildReport(state, cfg, now, queued, supersededCount) {
   const items = queued.map(e => toItem(e, now));
   return {
     generatedAt: new Date(now).toISOString(),
@@ -47,6 +47,7 @@ function buildReport(state, cfg, now, queued) {
     reportTime: cfg.reportTime,
     totalTracked: Object.keys(state.sessions).length,
     totalQueued: items.length,
+    supersededHidden: supersededCount || 0,
     shown: items.slice(0, cfg.maxDetailedItems),
     hidden: items.slice(cfg.maxDetailedItems),
   };
@@ -57,10 +58,12 @@ function renderMarkdown(rep) {
   L.push(`# 💡 idea reminder — ${rep.localDate || rep.generatedAt.slice(0, 10)}`);
   L.push('');
   if (rep.totalQueued === 0) {
-    L.push(`目前沒有閒置超過 **${rep.deltaIdle}** 的對話，佇列是空的 🎉（共追蹤 ${rep.totalTracked} 個）`);
+    const extra = rep.supersededHidden ? `（另有 ${rep.supersededHidden} 個接力鏈中較舊的對話已自動隱藏）` : '';
+    L.push(`目前沒有閒置超過 **${rep.deltaIdle}** 的對話，佇列是空的 🎉（共追蹤 ${rep.totalTracked} 個）${extra}`);
     return L.join('\n');
   }
   L.push(`有 **${rep.totalQueued}** 個對話閒置超過 **${rep.deltaIdle}**（共追蹤 ${rep.totalTracked} 個），依權重排序：`);
+  if (rep.supersededHidden) L.push(`_（另有 ${rep.supersededHidden} 個接力鏈中較舊的對話已自動隱藏，用 \`list --all\` 可看到）_`);
   L.push('');
   rep.shown.forEach((it, i) => {
     const nag = it.neglectCount > 0 ? ` · 已略過 ${it.neglectCount} 次` : '';

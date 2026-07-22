@@ -122,12 +122,12 @@ function reconcile(state, files, parseFn, cfg, now) {
 
 // Bump neglect once per calendar day. The first ever run only establishes the
 // baseline date (no bump), so day-one items start at neglect 0.
-function applyDailyBumpIfNeeded(state, todayKey) {
+function applyDailyBumpIfNeeded(state, todayKey, cfg) {
   if (state.lastDailyRun === todayKey) return false;
   const firstEver = state.lastDailyRun === null;
   if (!firstEver) {
     for (const e of Object.values(state.sessions)) {
-      if (e.status === 'queued') {
+      if (e.status === 'queued' && !isSuperseded(e, state, cfg || {})) {
         e.neglectCount = (e.neglectCount || 0) + 1;
         e.lastReportDate = todayKey;
       }
@@ -135,6 +135,27 @@ function applyDailyBumpIfNeeded(state, todayKey) {
   }
   state.lastDailyRun = todayKey;
   return !firstEver;
+}
+
+function matchesChain(cwd, cfg) {
+  if (!cwd) return false;
+  const c = cwd.toLowerCase();
+  return (cfg.chainProjects || []).some(s => s && c.includes(String(s).toLowerCase()));
+}
+
+// Superseded = belongs to a configured chain project AND a newer, still-live
+// session exists in the same project (cwd). You handed off to a later
+// conversation, so this predecessor no longer needs surfacing. Reversible: it
+// re-appears if the newer sibling is archived/dismissed/deleted.
+function isSuperseded(entry, state, cfg) {
+  if (!entry || !matchesChain(entry.cwd, cfg)) return false;
+  const mine = Date.parse(entry.lastActivity) || 0;
+  for (const e of Object.values(state.sessions)) {
+    if (e === entry || e.cwd !== entry.cwd) continue;
+    if (e.status === 'archived' || e.status === 'dismissed') continue;
+    if ((Date.parse(e.lastActivity) || 0) > mine) return true;
+  }
+  return false;
 }
 
 function computeWeight(entry, cfg, now) {
@@ -148,7 +169,7 @@ function computeWeight(entry, cfg, now) {
 }
 
 function queuedItems(state, cfg, now) {
-  const items = Object.values(state.sessions).filter(e => e.status === 'queued');
+  const items = Object.values(state.sessions).filter(e => e.status === 'queued' && !isSuperseded(e, state, cfg));
   for (const e of items) computeWeight(e, cfg, now);
   items.sort((a, b) => (b.weight - a.weight) || ((Date.parse(a.lastActivity) || 0) - (Date.parse(b.lastActivity) || 0)));
   return items;
@@ -156,5 +177,5 @@ function queuedItems(state, cfg, now) {
 
 module.exports = {
   loadState, saveState, dayKey, reconcile,
-  applyDailyBumpIfNeeded, computeWeight, queuedItems,
+  applyDailyBumpIfNeeded, computeWeight, queuedItems, isSuperseded,
 };

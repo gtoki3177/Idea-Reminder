@@ -2,130 +2,87 @@
 
 Resurface **neglected Claude Code conversations** as a weighted daily digest — so dropped work and half-formed ideas don't rot in your session history.
 
-- After a conversation has been idle for **Δt**, it joins the report queue.
-- Every day at time **T** you get a digest that asks, per conversation: continue, archive, dismiss, or snooze?
-- Every day you leave a queued conversation unresolved, its **weight climbs** — so the more you neglect something, the harder it pushes back. It stops only when you continue it, archive it, or dismiss it.
+- After a conversation has been idle for **Δt** (default 3 days), it joins the queue.
+- Once a day you get a digest that asks, per conversation: **continue, archive, dismiss, or snooze?**
+- Neglect one and its **weight climbs** each day, so it pushes harder the longer you ignore it — until you act.
 
-Two purposes: nag you about **dropped progress**, and let **inspiration settle then resurface** after it's had time to compost.
+> Tracks **Claude Code** sessions only (for now). How it all works internally: [architecture.md](architecture.md). Sharing it with others: [SHARE.md](SHARE.md).
 
-> **v1 scope: Claude Code sessions only.** (Cowork and claude.ai chat are on the roadmap — see the bottom.)
+## Requirements
 
-## Why build instead of install?
-
-No existing tool does this. Session browsers (Claude Code Bookmarks, claude-session-manager, CCHV, Mantra, …) let you *search/replay* sessions but have no idle-detection, digest, or resurfacing. Spaced-repetition digesters (Readwise, Reflect) do the *decay/resurface* model but for notes, not your Claude sessions. idea-reminder sits at that intersection. The weight model is spaced-repetition applied to your AI conversations.
-
-## How it works
-
-Claude Code stores every conversation as a JSONL file:
-
-```
-~/.claude/projects/<encoded-cwd>/<session-uuid>.jsonl   ← one "chat room" (tracked)
-~/.claude/projects/<encoded-cwd>/<uuid>/…               ← subagents/workflows/tool-results (ignored)
-```
-
-The scanner enumerates those top-level `.jsonl` files, extracts a title (first real prompt), the last thing you were doing, message count, and the last-activity timestamp. "Idle" = now − last activity. State lives in `state/state.json` (git-ignored; local only).
-
-### Weight
-
-```
-weight = 1  +  neglectStep × neglectCount  +  idleFactorPerDay × idleDays
-```
-
-- `neglectCount` — how many daily reports you've left it unresolved (the main escalator). Reset to 0 when you continue the session.
-- `idleDays` — a gentle secondary aging term.
-
-Defaults: `neglectStep = 1.0`, `idleFactorPerDay = 0.05`. Highest weight sorts first; the top `maxDetailedItems` are shown in full, the rest collapsed.
-
-### Lifecycle
-
-```
-tracking ⇄ queued        queued when idle ≥ Δt; back to tracking (neglect reset) when you resume it
-snoozed  → tracking       when the snooze timer passes
-archived / dismissed      terminal, set by you; never re-queue until `activate`
-```
-
-Continuing a conversation is detected automatically: when new activity appears after it was queued, it leaves the queue and its neglect resets. Delete a conversation in Claude and the scanner drops it on the next run.
+- **Node.js 18+** (tested on 22) — zero npm dependencies.
+- **Claude Code** (desktop app or CLI) — that's where the sessions and the daily scheduler live.
 
 ## Install
 
-Requires Node 18+ (tested on Node 22). No dependencies.
+```bash
+git clone https://github.com/gtoki3177/Idea-Reminder.git idea-reminder
+cd idea-reminder
+node bin/idea-reminder.js status     # sanity check: shows config + where it reads
+npm link                             # optional: puts `idea-reminder` on your PATH
+idea-reminder report                 # your first digest  (or: node bin/idea-reminder.js report)
+```
+
+## Usage
+
+### The daily digest
+
+`idea-reminder report` prints the queue, highest weight first, each with its title, project, idle days, how many times you've skipped it, and the last thing you were doing. Then you act on each (an 8-char id prefix is enough):
 
 ```bash
-node bin/idea-reminder.js status      # sanity-check config + paths
-node bin/idea-reminder.js scan        # build initial state
-node bin/idea-reminder.js report      # see today's digest
+idea-reminder archive  <id...>    # done / keep as reference — stop reminding (several ids ok)
+idea-reminder dismiss  <id...>    # not worth reminding — drop it
+idea-reminder snooze   <id> 5     # hide for 5 days
+idea-reminder note     <id> "text"# attach a note (shows in future digests)
+idea-reminder resume-cmd <id>     # print the `cd … && claude --resume …` line to continue it
+idea-reminder activate <id...>    # bring an archived/dismissed one back
 ```
 
-Optional — put it on PATH:
+`report --preview` shows the digest without counting it as today's report.
 
-```bash
-npm link            # then: idea-reminder report
-```
+### Set up the once-a-day trigger
 
-### As a Claude Code skill
+**Recommended — a Claude Code Desktop scheduled task.** It runs locally, survives restarts, and both updates the queue *and* shows you the digest in-app. Just ask Claude Code to schedule it, pasting the prompt from [`scheduled-task.md`](scheduled-task.md):
 
-Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md` (Windows: `C:\Users\<you>\.claude\skills\idea-reminder\SKILL.md`). Then `/idea-reminder` (or "回顧我的對話") runs the interactive review: it calls `report --json`, summarizes each stale conversation, and executes your continue/archive/dismiss/snooze choices.
+> Create a daily scheduled task at 10pm that runs the idea-reminder prompt.
 
-### Daily trigger at time T
+It fires whenever the app is open (or on next launch), then you reply to act on each item. No global skill needed — the task prompt is self-contained.
 
-The scanner reads **local** files, so the scheduler must run **on your machine** — that rules out Claude Code **Cloud Routines** (they run in a fresh cloud clone with no access to `~/.claude/projects`) and **`/loop`** (session-scoped, dies on exit, 7-day expiry).
+*(Alternative: `schtasks /Create /SC DAILY /ST 22:00 /TN idea-reminder /TR "node \"<repo>\bin\idea-reminder.js\" scan --daily --notify"` runs the scan even when Claude is fully closed; you review later with `report`.)*
 
-**Recommended — Claude Code Desktop scheduled task.** Runs locally, persists across restarts, needs no open session (fires on next launch if the app was closed), and can both update state *and* present the digest in-app. Just ask Claude in natural language, e.g.:
+### Handoff chains
 
-> 每天晚上 10 點跑 idea reminder：執行 `node "C:/code stuff/idea_reminder/bin/idea-reminder.js" report --json` 並用繁中呈現待回顧的對話，讓我決定繼續/歸檔/忽略。
+If you split one project across many hand-off conversations (each superseding the last), add that project to `chainProjects` so only the **newest live** conversation in it ever appears in the digest — older links auto-hide (reversible; `list --all` shows them). See `config.json` below.
 
-Claude stores it under `~/.claude/scheduled-tasks/<id>/SKILL.md`; manage it in the app's **Scheduled** sidebar. It only fires while the app is open, otherwise on next launch (no multi-day catch-up — which suits a daily digest fine). The task prompt is self-contained, so this works **without** installing the global skill.
+### As a Claude Code skill (optional)
 
-**Alternative — Windows Task Scheduler.** Use this if you want the scan to run even when Claude is fully closed (machine on). It updates state + notifies silently; review later with `report`.
-
-```powershell
-schtasks /Create /SC DAILY /ST 22:00 /TN "idea-reminder" ^
-  /TR "node \"C:\code stuff\idea_reminder\bin\idea-reminder.js\" scan --daily --notify"
-```
-
-Change `/ST 22:00` to your T. Remove with `schtasks /Delete /TN "idea-reminder" /F`.
-
-## Configuration — `config.json`
-
-| Key | Default | Meaning |
-|---|---|---|
-| `deltaIdle` | `"3d"` | Idle threshold Δt before queuing. `"3d"`, `"12h"`, `"90m"`. |
-| `reportTime` | `"09:00"` | Local time T for the daily report (used by the scheduler). |
-| `projectsDir` | `null` | Claude projects dir. `null` → `~/.claude/projects`. |
-| `statePath` | `null` | State file. `null` → `<pkg>/state/state.json`. |
-| `minMessages` | `1` | Skip sessions with fewer real messages. |
-| `maxDetailedItems` | `8` | How many items shown in full per report. |
-| `weights.neglectStep` | `1.0` | Weight added per skipped daily report. |
-| `weights.idleFactorPerDay` | `0.05` | Weight added per idle day. |
-| `excludeCwdContains` | `[]` | Skip sessions whose cwd contains any substring. |
-| `excludeProjects` | `[]` | Skip these encoded project folder names. |
-| `notify.enabled` | `false` | Turn on the daily notification. |
-| `notify.ntfyTopicUrl` | `""` | POST the summary here via `curl` (e.g. an [ntfy](https://ntfy.sh) topic). |
-| `notify.command` | `""` | Or run this shell command; `{message}` is replaced by the summary. |
+Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md`. Then `/idea-reminder` (or "回顧我的對話") runs the interactive review on demand.
 
 ## Commands
 
 | Command | Does |
 |---|---|
-| `report [--json] [--preview]` | The daily digest (default command). `--preview` = don't count it as today's report. |
+| `report [--json] [--preview]` | The daily digest (default). `--preview` = don't count it as today's report. |
 | `scan [--daily] [--notify]` | Rescan disk, reconcile state. `--daily` bumps neglect once/day; `--notify` sends the notification. |
-| `list [--all]` | One line per queued (or every) session. |
-| `archive <id>` | Keep as reference, stop reminding. |
-| `dismiss <id>` | Drop from reminders. |
-| `activate <id>` | Bring an archived/dismissed one back. |
-| `snooze <id> [days=3]` | Hide for N days. |
-| `note <id> <text>` | Attach a note (shown in future digests). |
-| `resume-cmd <id>` | Print the `cd … && claude --resume …` line to continue it. |
-| `status` | Show config, paths, and status counts. |
+| `list [--all]` | One line per queued session (`--all` = every session, superseded ones tagged). |
+| `archive / dismiss / activate <id...>` | Resolve (or un-resolve) one or several sessions. |
+| `snooze <id> [days=3]` · `note <id> <text>` · `resume-cmd <id>` | Hide for N days · attach a note · print the resume command. |
+| `status` | Show config, paths, chain projects, and counts. |
 
-IDs accept an 8-character prefix.
+## Configuration — `config.json`
+
+| Key | Default | Meaning |
+|---|---|---|
+| `deltaIdle` | `"3d"` | Idle threshold Δt before queuing (`"3d"`, `"12h"`, `"90m"`). |
+| `reportTime` | `"09:00"` | Local time T for the daily report (used by the scheduler). |
+| `chainProjects` | `[]` | cwd substrings that are linear hand-off chains; only the newest live session in each stays queued. |
+| `maxDetailedItems` | `8` | How many items shown in full per report. |
+| `weights.neglectStep` · `weights.idleFactorPerDay` | `1.0` · `0.05` | Weight added per skipped report · per idle day. |
+| `minMessages` | `1` | Skip sessions with fewer real messages. |
+| `excludeCwdContains` · `excludeProjects` | `[]` | Skip sessions by cwd substring / encoded project name. |
+| `projectsDir` · `statePath` | `null` | Override the Claude projects dir / state file (null = sensible defaults). |
+| `notify.enabled` · `notify.ntfyTopicUrl` · `notify.command` | `false` · `""` · `""` | Optional daily push (e.g. an [ntfy](https://ntfy.sh) topic, or any shell command with `{message}`). |
 
 ## Data & privacy
 
-Everything is local. State (`state/state.json`) contains snippets of your prompts for titles/previews and never leaves your machine. idea-reminder **only reads** your session files — it never edits or deletes them.
-
-## Roadmap
-
-- **Cowork** — sessions live locally under `%AppData%\Roaming\Claude\local-agent-mode-sessions\…`; readable but messier structure.
-- **claude.ai chat** — no official list API; would need the periodic data-export ZIP or a fragile unofficial cookie API. Lower priority.
-- Trend view (which ideas keep resurfacing), and grouping resurfaced ideas into themes.
+Everything is local. `state/state.json` (git-ignored) holds prompt snippets for titles/previews and never leaves your machine. idea reminder **only reads** your session files — it never edits or deletes them.

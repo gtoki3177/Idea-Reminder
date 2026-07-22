@@ -66,7 +66,7 @@ function main() {
   switch (cmd) {
     case 'scan': {
       const n = syncFromDisk(state, cfg, now);
-      if (flags.has('--daily')) S.applyDailyBumpIfNeeded(state, today);
+      if (flags.has('--daily')) S.applyDailyBumpIfNeeded(state, today, cfg);
       const q = S.queuedItems(state, cfg, now);
       S.saveState(cfg.statePath, state, now);
       if (flags.has('--notify')) notify(cfg, state, now);
@@ -78,10 +78,12 @@ function main() {
 
     case 'report': {
       syncFromDisk(state, cfg, now);
-      if (!flags.has('--preview')) S.applyDailyBumpIfNeeded(state, today); // review == the daily report
+      if (!flags.has('--preview')) S.applyDailyBumpIfNeeded(state, today, cfg); // review == the daily report
       const q = S.queuedItems(state, cfg, now);
       S.saveState(cfg.statePath, state, now);
-      const rep = buildReport(state, cfg, now, q);
+      const supersededCount = Object.values(state.sessions)
+        .filter(e => e.status === 'queued' && S.isSuperseded(e, state, cfg)).length;
+      const rep = buildReport(state, cfg, now, q, supersededCount);
       process.stdout.write((flags.has('--json') ? JSON.stringify(rep, null, 2) : renderMarkdown(rep)) + '\n');
       break;
     }
@@ -90,14 +92,16 @@ function main() {
       syncFromDisk(state, cfg, now);
       S.queuedItems(state, cfg, now); // refresh weights
       S.saveState(cfg.statePath, state, now);
+      const showAll = flags.has('--all');
       const all = Object.values(state.sessions)
-        .filter(e => flags.has('--all') || e.status === 'queued')
+        .filter(e => showAll || (e.status === 'queued' && !S.isSuperseded(e, state, cfg)))
         .sort((a, b) => (b.weight || 0) - (a.weight || 0));
       if (!all.length) { process.stdout.write('(nothing queued)\n'); break; }
       for (const e of all) {
+        const sup = S.isSuperseded(e, state, cfg) ? ' [superseded]' : '';
         process.stdout.write(
           `${e.status.padEnd(9)} w${String(e.weight || 0).padStart(6)} n${e.neglectCount || 0} ` +
-          `${e.id.slice(0, 8)} ${(e.title || '').slice(0, 64)}\n`);
+          `${e.id.slice(0, 8)} ${(e.title || '').slice(0, 64)}${sup}\n`);
       }
       break;
     }
@@ -148,6 +152,7 @@ function main() {
         `projectsDir: ${cfg.projectsDir}\n` +
         `state:       ${cfg.statePath}\n` +
         `Δt:          ${cfg.deltaIdle}   ·   report T: ${cfg.reportTime}\n` +
+        `chains:      ${JSON.stringify(cfg.chainProjects || [])}\n` +
         `lastDailyRun:${state.lastDailyRun}\n` +
         `counts:      ${JSON.stringify(counts)}\n`);
       break;
