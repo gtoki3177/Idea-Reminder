@@ -52,7 +52,7 @@ function projectLabel(entry) {
 }
 
 function resumeCommand(entry, locale) {
-  if (String(entry.id).startsWith('local_') || entry.source === 'desktop') {
+  if (String(entry.id).startsWith('local_') || entry.source === 'desktop' || entry.source === 'cowork') {
     return t(locale).desktopResume(((entry.titleOverride || entry.title) || '').slice(0, 40));
   }
   return entry.cwd ? `cd "${entry.cwd}" && claude --resume ${entry.id}` : `claude --resume ${entry.id}`;

@@ -18,7 +18,7 @@ Commands: `report [--json] [--preview]` · `sync-desktop <json>` · `scan [--dai
 
 ## Workflow when invoked
 
-0. **Desktop sync** (desktop app only): call the MCP tool `mcp__ccd_session_mgmt__list_sessions` with `{include_archived: true, limit: 100}`, Write the returned JSON array verbatim to `~/.claude/idea-reminder/desktop-sessions.json`, then run `sync-desktop "<that path>"`. This mirrors Claude's own archive state (archived in Claude = gone from the digest) and ingests Cowork/desktop conversations. If the MCP tool is unavailable (plain CLI), skip silently.
+0. **Desktop sync** (desktop app only): call the MCP tool `mcp__ccd_session_mgmt__list_sessions` with `{include_archived: true, limit: 100}`, Write the returned JSON array verbatim to `~/.claude/idea-reminder/desktop-sessions.json`, then run `sync-desktop "<that path>"`. This mirrors the **Code tab's** archive state (archived in Claude = gone from the digest). Cowork conversations don't need this step — the CLI scans them straight from disk, app titles and archive state included. If the MCP tool is unavailable (plain CLI), skip silently.
 
 1. **Get the digest**: run `report --json` (reflects fresh on-disk state and applies the once-per-day weight bump). Use `report --preview` if the user only wants to peek without counting it as today's report.
 

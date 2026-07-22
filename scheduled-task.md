@@ -27,9 +27,9 @@ past Δt and may be dropped work or half-formed ideas.
    save the returned JSON array verbatim to ~/.claude/idea-reminder/desktop-sessions.json
    with the Write tool, then run:
    idea-reminder sync-desktop "~/.claude/idea-reminder/desktop-sessions.json"
-   This mirrors Claude's own archive state into the queue (archived in Claude =
-   gone from the digest) and ingests Cowork/desktop conversations. If the MCP
-   is unavailable, skip this step.
+   This mirrors the Code tab's archive state into the queue (archived in
+   Claude = gone from the digest). Cowork conversations need no MCP — the CLI
+   scans them from disk automatically. If the MCP is unavailable, skip this step.
 
 1. Run this command to get today's digest (it reflects the latest on-disk state
    and applies the once-per-day weight bump):

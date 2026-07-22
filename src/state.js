@@ -33,7 +33,7 @@ function dayKey(ms) {
   return `${y}-${m}-${da}`;
 }
 
-const FACT_KEYS = ['title', 'firstPrompt', 'lastUserText', 'messageCount', 'firstActivity', 'lastActivity', 'cwd', 'sizeKB'];
+const FACT_KEYS = ['title', 'firstPrompt', 'lastUserText', 'messageCount', 'firstActivity', 'lastActivity', 'cwd', 'sizeKB', 'isScheduledRun', 'isArchivedInApp'];
 function pickFacts(entry) {
   const f = {};
   for (const k of FACT_KEYS) f[k] = entry[k];
@@ -45,20 +45,22 @@ function reconcile(state, files, parseFn, cfg, now) {
   const present = new Set();
 
   for (const f of files) {
-    const cacheKey = `${Math.round(f.mtimeMs)}:${f.size}`;
+    // v3: parser version prefix — bumping it re-parses everything once.
+    const cacheKey = `v3:${Math.round(f.mtimeMs)}:${f.size}`;
     let entry = state.sessions[f.id];
 
     // Reuse cached parse when the file hasn't changed since we last saw it.
     let facts;
     if (entry && entry.cacheKey === cacheKey && entry.title !== undefined) facts = pickFacts(entry);
-    else facts = parseFn(f.path, f.mtimeMs);
+    else facts = parseFn(f.path, f.mtimeMs, f);
 
     const cwd = facts.cwd || '';
     const excludedCwd = (cfg.excludeCwdContains || []).some(s => s && cwd.includes(s));
     const excludedProj = (cfg.excludeProjects || []).includes(f.project);
+    const excludedTitle = (cfg.excludeTitles || []).some(x => x && String(facts.title || '').trim() === String(x).trim());
     const meaningful = (facts.messageCount || 0) >= cfg.minMessages ||
       (facts.title && facts.title !== '(untitled session)');
-    if (excludedCwd || excludedProj || !meaningful) {
+    if (excludedCwd || excludedProj || excludedTitle || facts.isScheduledRun || !meaningful) {
       delete state.sessions[f.id]; // was tracked but no longer qualifies
       continue;
     }
@@ -74,7 +76,22 @@ function reconcile(state, files, parseFn, cfg, now) {
     entry.project = f.project;
     entry.path = f.path;
     entry.cacheKey = cacheKey;
+    if (f.source) entry.source = f.source;   // 'cowork'; plain Code sessions leave it unset
     Object.assign(entry, facts);
+
+    // Mirror the app's own archive flag (cowork metadata). One-way per origin:
+    // only archives we made from this flag are un-archived when the app un-archives.
+    if (facts.isArchivedInApp !== undefined) {
+      if (facts.isArchivedInApp && entry.status !== 'archived' && entry.status !== 'dismissed') {
+        entry.status = 'archived';
+        entry.resolvedReason = 'claude-archived';
+        entry.resolvedAt = new Date(now).toISOString();
+      } else if (!facts.isArchivedInApp && entry.status === 'archived' && entry.resolvedReason === 'claude-archived') {
+        entry.status = 'tracking';
+        entry.resolvedReason = null;
+        entry.resolvedAt = null;
+      }
+    }
 
     applyLifecycle(entry, cfg, now);
   }

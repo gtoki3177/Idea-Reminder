@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadConfig } = require('../src/config');
 const { listSessionFiles, parseSession } = require('../src/sessions');
+const { listCoworkSessions, parseCoworkSession } = require('../src/cowork');
 const S = require('../src/state');
 const { buildReport, renderMarkdown, t } = require('../src/report');
 
@@ -64,8 +65,10 @@ function migrateLegacyState(cfg) {
 }
 
 function syncFromDisk(state, cfg, now) {
-  const files = listSessionFiles(cfg.projectsDir);
-  S.reconcile(state, files, parseSession, cfg, now);
+  const files = listSessionFiles(cfg.projectsDir)
+    .concat(listCoworkSessions(cfg.coworkDir));
+  const parseAny = (p, m, f) => (f && f.source === 'cowork') ? parseCoworkSession(p, m) : parseSession(p, m);
+  S.reconcile(state, files, parseAny, cfg, now);
   return files.length;
 }
 
@@ -183,6 +186,7 @@ function main() {
       process.stdout.write(
         `config:      ${cfg.configLayers.length ? cfg.configLayers.join('  +  ') : '(defaults)'}\n` +
         `projectsDir: ${cfg.projectsDir}\n` +
+        `coworkDir:   ${cfg.coworkDir}${fs.existsSync(cfg.coworkDir) ? '' : '   (absent — cowork scan skipped)'}\n` +
         `state:       ${cfg.statePath}\n` +
         `Δt:          ${cfg.deltaIdle}   ·   report T: ${cfg.reportTime}\n` +
         `chain mode:  ${cfg.chainMode || 'list'}` +

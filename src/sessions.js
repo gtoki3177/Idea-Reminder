@@ -59,6 +59,7 @@ function isMeaningfulUserText(t) {
   if (s.startsWith('<')) return false;                  // <system-reminder>, <command-name>, ...
   if (s.startsWith('[Request interrupted')) return false;
   if (s.startsWith('Caveat:')) return false;
+  if (s.startsWith('Base directory for this skill:')) return false; // skill-invocation preamble
   return true;
 }
 
@@ -131,4 +132,4 @@ function parseSession(file, mtimeMs) {
   return facts;
 }
 
-module.exports = { listSessionFiles, parseSession };
+module.exports = { listSessionFiles, parseSession, textFromContent, isMeaningfulUserText, makeTitle };

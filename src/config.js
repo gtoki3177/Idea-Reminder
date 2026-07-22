@@ -12,6 +12,7 @@ const DEFAULTS = {
   deltaIdle: '3d',            // idle threshold before a session enters the queue
   reportTime: '09:00',        // local time T for the daily report (used by the scheduler)
   locale: 'en',               // CLI output language: 'en' | 'zh-TW'
+  coworkDir: null,            // Cowork (local agent mode) sessions dir; null -> platform default
   projectsDir: null,          // null -> ~/.claude/projects
   statePath: null,            // null -> <pkg>/state/state.json
   minMessages: 1,             // ignore sessions with fewer real messages than this
@@ -53,6 +54,17 @@ function deepMerge(base, over) {
   return out;
 }
 
+function defaultCoworkDir() {
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    return path.join(appData, 'Claude', 'local-agent-mode-sessions');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'local-agent-mode-sessions');
+  }
+  return path.join(os.homedir(), '.config', 'Claude', 'local-agent-mode-sessions');
+}
+
 function readJsonIfExists(p) {
   if (!p || !fs.existsSync(p)) return null;
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
@@ -83,6 +95,7 @@ function loadConfig() {
   cfg.configLayers = loaded;
   cfg.configPath = loaded[loaded.length - 1] || path.join(PKG_ROOT, 'config.json');
   cfg.projectsDir = cfg.projectsDir || path.join(os.homedir(), '.claude', 'projects');
+  cfg.coworkDir = cfg.coworkDir || defaultCoworkDir();
   cfg.userDir = USER_DIR;
   cfg.statePath = cfg.statePath || path.join(USER_DIR, 'state.json');
   cfg.deltaIdleMs = parseDurationMs(cfg.deltaIdle);

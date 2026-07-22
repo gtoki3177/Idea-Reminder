@@ -6,7 +6,7 @@ Resurface **neglected Claude Code conversations** as a weighted daily digest —
 - Once a day you get a digest that asks, per conversation: **continue, archive, dismiss, or snooze?**
 - Neglect one and its **weight climbs** each day, so it pushes harder the longer you ignore it — until you act.
 
-> Tracks **Claude Code** sessions from disk, plus **Cowork / desktop-app** conversations and **Claude's own archive state** via the app's session-management MCP (synced by the daily task — see `sync-desktop`). claude.ai **web chat** is not covered (no usable API).
+> Tracks **Claude Code** sessions and **Cowork** conversations straight from local disk — with the app's real titles and archive state, so anything you archived in Claude stays quiet. The Code tab's archive state additionally syncs via the desktop MCP (`sync-desktop`, run by the daily task). Not covered: **remote/cloud Cowork runs** and claude.ai **web chat** (neither leaves local files).
 
 ## Requirements
 
