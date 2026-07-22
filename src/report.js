@@ -12,6 +12,9 @@ function projectLabel(entry) {
 }
 
 function resumeCommand(entry) {
+  if (String(entry.id).startsWith('local_') || entry.source === 'desktop') {
+    return `(在 Claude app 裡開啟「${(entry.title || '').slice(0, 40)}」)`;
+  }
   return entry.cwd ? `cd "${entry.cwd}" && claude --resume ${entry.id}` : `claude --resume ${entry.id}`;
 }
 
@@ -25,7 +28,7 @@ function toItem(entry, now) {
     id: entry.id,
     project: projectLabel(entry),
     cwd: entry.cwd || '',
-    title: entry.title,
+    title: entry.titleOverride || entry.title,
     firstPrompt: entry.firstPrompt,
     lastUserText: entry.lastUserText,
     messageCount: entry.messageCount,

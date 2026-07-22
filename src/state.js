@@ -76,47 +76,58 @@ function reconcile(state, files, parseFn, cfg, now) {
     entry.cacheKey = cacheKey;
     Object.assign(entry, facts);
 
-    const lastActMs = Date.parse(entry.lastActivity) || f.mtimeMs;
-
-    // Un-snooze when the timer elapses.
-    if (entry.status === 'snoozed' && entry.snoozeUntil && now >= Date.parse(entry.snoozeUntil)) {
-      entry.snoozeUntil = null;
-      entry.status = 'tracking';
-    }
-
-    // Resume detection: real activity happened after we queued it -> user continued.
-    if (entry.status === 'queued' && entry.queuedAtActivity && lastActMs > Date.parse(entry.queuedAtActivity)) {
-      entry.status = 'tracking';
-      entry.neglectCount = 0;
-      entry.queuedAt = null;
-      entry.queuedAtActivity = null;
-      entry.resolvedReason = 'resumed';
-      entry.resolvedAt = new Date(now).toISOString();
-    }
-
-    // Terminal / paused states are left as-is.
-    if (entry.status === 'archived' || entry.status === 'dismissed' || entry.status === 'snoozed') continue;
-
-    // (Re)queue based on idleness.
-    const idleMs = now - lastActMs;
-    if (idleMs >= cfg.deltaIdleMs) {
-      if (entry.status !== 'queued') {
-        entry.status = 'queued';
-        entry.queuedAt = entry.queuedAt || new Date(now).toISOString();
-        entry.queuedAtActivity = entry.lastActivity;
-        entry.resolvedReason = null;
-        entry.resolvedAt = null;
-      }
-    } else {
-      entry.status = 'tracking';
-      entry.queuedAt = null;
-      entry.queuedAtActivity = null;
-    }
+    applyLifecycle(entry, cfg, now);
   }
 
   // Drop sessions that no longer exist on disk (deleted in Claude).
+  // Desktop-sourced entries (from sync-desktop) have no jsonl file: keep them.
   for (const id of Object.keys(state.sessions)) {
-    if (!present.has(id)) delete state.sessions[id];
+    if (!present.has(id) && state.sessions[id].source !== 'desktop') delete state.sessions[id];
+  }
+
+  // Desktop-sourced entries run the same lifecycle (queue/idle/snooze/resume).
+  for (const e of Object.values(state.sessions)) {
+    if (e.source === 'desktop') applyLifecycle(e, cfg, now);
+  }
+}
+
+// Shared lifecycle: un-snooze, resume-detect, (re)queue by idleness.
+function applyLifecycle(entry, cfg, now) {
+  const lastActMs = Date.parse(entry.lastActivity) || 0;
+
+  // Un-snooze when the timer elapses.
+  if (entry.status === 'snoozed' && entry.snoozeUntil && now >= Date.parse(entry.snoozeUntil)) {
+    entry.snoozeUntil = null;
+    entry.status = 'tracking';
+  }
+
+  // Resume detection: real activity happened after we queued it -> user continued.
+  if (entry.status === 'queued' && entry.queuedAtActivity && lastActMs > Date.parse(entry.queuedAtActivity)) {
+    entry.status = 'tracking';
+    entry.neglectCount = 0;
+    entry.queuedAt = null;
+    entry.queuedAtActivity = null;
+    entry.resolvedReason = 'resumed';
+    entry.resolvedAt = new Date(now).toISOString();
+  }
+
+  // Terminal / paused states are left as-is.
+  if (entry.status === 'archived' || entry.status === 'dismissed' || entry.status === 'snoozed') return;
+
+  // (Re)queue based on idleness.
+  const idleMs = now - lastActMs;
+  if (idleMs >= cfg.deltaIdleMs) {
+    if (entry.status !== 'queued') {
+      entry.status = 'queued';
+      entry.queuedAt = entry.queuedAt || new Date(now).toISOString();
+      entry.queuedAtActivity = entry.lastActivity;
+      entry.resolvedReason = null;
+      entry.resolvedAt = null;
+    }
+  } else {
+    entry.status = 'tracking';
+    entry.queuedAt = null;
+    entry.queuedAtActivity = null;
   }
 }
 
@@ -191,7 +202,85 @@ function queuedItems(state, cfg, now) {
   return items;
 }
 
+// --- Desktop (Claude app) session sync --------------------------------------
+// `entries` is the parsed output of the app's ccd_session_mgmt list_sessions
+// MCP tool: [{sessionId:"local_…", title, cwd, isArchived, isRunning,
+// lastActivityAt}]. Two jobs:
+//   1. Mirror Claude's own archive state onto the matched Code (jsonl) session
+//      — matched by exact cwd + nearest lastActivity within tolerance, since
+//      the desktop id and the jsonl uuid are different namespaces.
+//   2. Ingest desktop-only conversations (Cowork / local-agent) as first-class
+//      tracked entries (source: "desktop").
+// Mirroring is one-way per origin: only entries WE archived via this sync
+// (resolvedReason "claude-archived") are un-archived when Claude un-archives;
+// the user's manual archive/dismiss in idea-reminder is never overridden.
+const DESKTOP_MATCH_TOLERANCE_MS = 30 * 60 * 1000;
+
+function syncDesktop(state, entries, cfg, now) {
+  const out = { archivedSynced: 0, unarchivedSynced: 0, ingested: 0, updated: 0, skipped: 0 };
+  const jsonlSessions = Object.values(state.sessions).filter(e => e.source !== 'desktop');
+  const isExcluded = t => (cfg.excludeTitles || []).some(x => x && String(t || '').trim() === String(x).trim());
+
+  const mirrorArchive = (e, d) => {
+    if (d.isArchived && e.status !== 'archived' && e.status !== 'dismissed') {
+      e.status = 'archived';
+      e.resolvedReason = 'claude-archived';
+      e.resolvedAt = new Date(now).toISOString();
+      out.archivedSynced++;
+    } else if (!d.isArchived && e.status === 'archived' && e.resolvedReason === 'claude-archived') {
+      e.status = 'tracking';
+      e.resolvedReason = null;
+      e.resolvedAt = null;
+      out.unarchivedSynced++;
+    }
+  };
+
+  for (const d of entries || []) {
+    if (!d || !d.sessionId) continue;
+    if (isExcluded(d.title)) { out.skipped++; continue; }   // scheduled-task/routine runs etc.
+    const dTime = Date.parse(d.lastActivityAt) || 0;
+
+    // 1) Match a tracked Code (jsonl) session: same cwd, nearest activity time.
+    let best = null, bestDelta = Infinity;
+    for (const e of jsonlSessions) {
+      if (normPath(e.cwd) !== normPath(d.cwd)) continue;
+      const delta = Math.abs((Date.parse(e.lastActivity) || 0) - dTime);
+      if (delta < bestDelta) { best = e; bestDelta = delta; }
+    }
+    if (best && bestDelta <= DESKTOP_MATCH_TOLERANCE_MS) {
+      best.desktopId = d.sessionId;
+      // Keep the app's curated title in a separate field: reconcile refreshes
+      // `title` from the jsonl on every scan, so it must not be overwritten.
+      if (d.title) best.titleOverride = d.title;
+      mirrorArchive(best, d);
+      out.updated++;
+      continue;
+    }
+
+    // 2) Desktop-only conversation (Cowork / local-agent) -> track it.
+    if (d.isRunning) { out.skipped++; continue; }
+    let e = state.sessions[d.sessionId];
+    if (!e) {
+      e = state.sessions[d.sessionId] = {
+        id: d.sessionId, source: 'desktop', status: 'tracking',
+        neglectCount: 0, weight: 0, queuedAt: null, queuedAtActivity: null,
+        lastReportDate: null, snoozeUntil: null, resolvedReason: null,
+        resolvedAt: null, notes: null, messageCount: 0, sizeKB: 0,
+        firstPrompt: '', lastUserText: '', firstActivity: d.lastActivityAt || null,
+      };
+      out.ingested++;
+    }
+    e.title = d.title || e.title || '(untitled)';
+    e.cwd = d.cwd || e.cwd || '';
+    e.project = e.project || 'desktop';
+    e.lastActivity = d.lastActivityAt || e.lastActivity;
+    mirrorArchive(e, d);
+  }
+  return out;
+}
+
 module.exports = {
   loadState, saveState, dayKey, reconcile,
   applyDailyBumpIfNeeded, computeWeight, queuedItems, isSuperseded,
+  syncDesktop,
 };

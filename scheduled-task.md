@@ -20,6 +20,15 @@ Then paste the prompt. (Assumes `idea-reminder` is on your PATH via `npm link`. 
 Review my "idea reminder" queue: Claude Code conversations that have gone idle
 past Δt and may be dropped work or half-formed ideas.
 
+0. If the ccd_session_mgmt MCP tools are available, call
+   mcp__ccd_session_mgmt__list_sessions (include_archived: true, limit: 100),
+   save the returned JSON array verbatim to <repo>/state/desktop-sessions.json
+   with the Write tool, then run:
+   idea-reminder sync-desktop "<repo>/state/desktop-sessions.json"
+   This mirrors Claude's own archive state into the queue (archived in Claude =
+   gone from the digest) and ingests Cowork/desktop conversations. If the MCP
+   is unavailable, skip this step.
+
 1. Run this command to get today's digest (it reflects the latest on-disk state
    and applies the once-per-day weight bump):
    idea-reminder report --json

@@ -101,8 +101,23 @@ function main() {
         const sup = S.isSuperseded(e, state, cfg) ? ' [superseded]' : '';
         process.stdout.write(
           `${e.status.padEnd(9)} w${String(e.weight || 0).padStart(6)} n${e.neglectCount || 0} ` +
-          `${e.id.slice(0, 8)} ${(e.title || '').slice(0, 64)}${sup}\n`);
+          `${e.id.slice(0, 8)} ${(e.titleOverride || e.title || '').slice(0, 64)}${sup}\n`);
       }
+      break;
+    }
+
+    case 'sync-desktop': {
+      // pos[0] = path to a JSON file holding the ccd list_sessions MCP output
+      if (!pos[0]) throw new Error('sync-desktop needs <path-to-list_sessions-json>');
+      const raw = require('fs').readFileSync(pos[0], 'utf8');
+      let entries = JSON.parse(raw);
+      if (!Array.isArray(entries)) entries = entries.sessions || entries.result || [];
+      const r = S.syncDesktop(state, entries, cfg, now);
+      syncFromDisk(state, cfg, now);   // re-run lifecycle so new/changed entries queue correctly
+      S.saveState(cfg.statePath, state, now);
+      process.stdout.write(
+        `sync-desktop: ${entries.length} entries · matched+updated ${r.updated} ` +
+        `· archived⇄ ${r.archivedSynced}/${r.unarchivedSynced} · ingested ${r.ingested} · skipped ${r.skipped}\n`);
       break;
     }
 
@@ -168,6 +183,8 @@ function main() {
         `  scan [--daily] [--notify]   rescan disk, reconcile state (--daily bumps neglect once/day)\n` +
         `  report [--json] [--preview] the daily digest (default; --preview = no neglect bump)\n` +
         `  list [--all]                one line per queued (or all) session\n` +
+        `  sync-desktop <json>         sync Claude app sessions (archive state + cowork) from a\n` +
+        `                              saved ccd list_sessions MCP output file\n` +
         `  archive <id...>             keep as reference, stop reminding (accepts several ids)\n` +
         `  dismiss <id...>             drop from reminders (accepts several ids)\n` +
         `  activate <id...>            bring archived/dismissed ones back\n` +

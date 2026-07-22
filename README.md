@@ -6,7 +6,7 @@ Resurface **neglected Claude Code conversations** as a weighted daily digest —
 - Once a day you get a digest that asks, per conversation: **continue, archive, dismiss, or snooze?**
 - Neglect one and its **weight climbs** each day, so it pushes harder the longer you ignore it — until you act.
 
-> Tracks **Claude Code** sessions only (for now).
+> Tracks **Claude Code** sessions from disk, plus **Cowork / desktop-app** conversations and **Claude's own archive state** via the app's session-management MCP (synced by the daily task — see `sync-desktop`). claude.ai **web chat** is not covered (no usable API).
 
 ## Requirements
 
@@ -69,6 +69,7 @@ Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md`. Then `/idea-
 | `report [--json] [--preview]` | The daily digest (default). `--preview` = don't count it as today's report. |
 | `scan [--daily] [--notify]` | Rescan disk, reconcile state. `--daily` bumps neglect once/day; `--notify` sends the notification. |
 | `list [--all]` | One line per queued session (`--all` = every session, superseded ones tagged). |
+| `sync-desktop <json>` | Sync from a saved `list_sessions` MCP output: mirrors Claude's archive state onto matched sessions and ingests Cowork/desktop conversations. The daily task does this automatically. |
 | `archive / dismiss / activate <id...>` | Resolve (or un-resolve) one or several sessions. |
 | `snooze <id> [days=3]` · `note <id> <text>` · `resume-cmd <id>` | Hide for N days · attach a note · print the resume command. |
 | `status` | Show config, paths, chain projects, and counts. |

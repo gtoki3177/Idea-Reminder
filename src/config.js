@@ -21,6 +21,8 @@ const DEFAULTS = {
   chainMode: 'list',          // "off" | "list" | "auto" — hand-off chain detection
   chainProjects: [],          // list mode: cwd substrings whose sessions form a chain
   independentProjects: [],    // auto mode: exact cwds exempt from chaining (junk drawers)
+  excludeTitles: [],          // desktop sync: skip sessions with these exact titles
+                              // (e.g. your scheduled-task/routine names)
   notify: { enabled: false, ntfyTopicUrl: '', command: '' },
 };
 
