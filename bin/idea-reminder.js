@@ -128,10 +128,20 @@ function main() {
     }
 
     case 'sync-desktop': {
-      // pos[0] = path to a JSON file holding the ccd list_sessions MCP output
-      if (!pos[0]) throw new Error('sync-desktop needs <path-to-list_sessions-json>');
-      const raw = require('fs').readFileSync(pos[0], 'utf8');
-      let entries = JSON.parse(raw);
+      // Input = the ccd list_sessions MCP output (JSON array).
+      // Preferred: pipe it on stdin (`sync-desktop -` or no arg) — avoids any
+      // temp file (writes under ~/.claude trip the sensitive-file guard).
+      // A file path still works for manual use.
+      const src = pos[0] && pos[0] !== '-' ? pos[0] : 0; // 0 = stdin fd
+      const raw = fs.readFileSync(src, 'utf8');
+      if (!raw.trim()) throw new Error('sync-desktop: empty input (pipe the list_sessions JSON on stdin, or pass a file path)');
+      let entries;
+      try { entries = JSON.parse(raw); }
+      catch {
+        // Windows shells sometimes collapse \\ into \ inside heredocs, breaking
+        // JSON escapes (e.g. "C:\code stuff"). Re-escape stray backslashes and retry.
+        entries = JSON.parse(raw.replace(/\\(?![\\/"bfnrtu])/g, '\\\\'));
+      }
       if (!Array.isArray(entries)) entries = entries.sessions || entries.result || [];
       const r = S.syncDesktop(state, entries, cfg, now);
       syncFromDisk(state, cfg, now);   // re-run lifecycle so new/changed entries queue correctly
@@ -205,8 +215,8 @@ function main() {
         `  scan [--daily] [--notify]   rescan disk, reconcile state (--daily bumps neglect once/day)\n` +
         `  report [--json] [--preview] the daily digest (default; --preview = no neglect bump)\n` +
         `  list [--all]                one line per queued (or all) session\n` +
-        `  sync-desktop <json>         sync Claude app sessions (archive state + cowork) from a\n` +
-        `                              saved ccd list_sessions MCP output file\n` +
+        `  sync-desktop [-|<json>]     mirror the Code tab's archive state from ccd list_sessions\n` +
+        `                              MCP output (stdin with '-'/no arg, or a file path)\n` +
         `  archive <id...>             keep as reference, stop reminding (accepts several ids)\n` +
         `  dismiss <id...>             drop from reminders (accepts several ids)\n` +
         `  activate <id...>            bring archived/dismissed ones back\n` +

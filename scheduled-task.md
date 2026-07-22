@@ -24,9 +24,11 @@ past Δt and may be dropped work or half-formed ideas.
 
 0. If the ccd_session_mgmt MCP tools are available, call
    mcp__ccd_session_mgmt__list_sessions (include_archived: true, limit: 100),
-   save the returned JSON array verbatim to ~/.claude/idea-reminder/desktop-sessions.json
-   with the Write tool, then run:
-   idea-reminder sync-desktop "~/.claude/idea-reminder/desktop-sessions.json"
+   then pipe the returned JSON array to the CLI on stdin via a Bash heredoc
+   (do NOT write it to a file — ~/.claude writes trigger a sensitive-file prompt):
+   idea-reminder sync-desktop - <<'IDEA_SYNC_EOF'
+   [ ...the JSON array verbatim... ]
+   IDEA_SYNC_EOF
    This mirrors the Code tab's archive state into the queue (archived in
    Claude = gone from the digest). Cowork conversations need no MCP — the CLI
    scans them from disk automatically. If the MCP is unavailable, skip this step.
