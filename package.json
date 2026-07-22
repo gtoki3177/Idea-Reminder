@@ -1,0 +1,16 @@
+{
+  "name": "idea-reminder",
+  "version": "0.1.0",
+  "description": "Resurface neglected Claude Code conversations as a weighted daily digest.",
+  "bin": {
+    "idea-reminder": "bin/idea-reminder.js"
+  },
+  "scripts": {
+    "scan": "node bin/idea-reminder.js scan",
+    "report": "node bin/idea-reminder.js report",
+    "daily": "node bin/idea-reminder.js scan --daily --notify",
+    "status": "node bin/idea-reminder.js status"
+  },
+  "license": "MIT",
+  "private": true
+}

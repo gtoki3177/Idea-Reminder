@@ -1,0 +1,19 @@
+{
+  "deltaIdle": "3d",
+  "reportTime": "09:00",
+  "projectsDir": null,
+  "statePath": null,
+  "minMessages": 1,
+  "maxDetailedItems": 8,
+  "weights": {
+    "neglectStep": 1.0,
+    "idleFactorPerDay": 0.05
+  },
+  "excludeCwdContains": [],
+  "excludeProjects": [],
+  "notify": {
+    "enabled": false,
+    "ntfyTopicUrl": "",
+    "command": ""
+  }
+}
