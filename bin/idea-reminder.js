@@ -152,7 +152,10 @@ function main() {
         `projectsDir: ${cfg.projectsDir}\n` +
         `state:       ${cfg.statePath}\n` +
         `Δt:          ${cfg.deltaIdle}   ·   report T: ${cfg.reportTime}\n` +
-        `chains:      ${JSON.stringify(cfg.chainProjects || [])}\n` +
+        `chain mode:  ${cfg.chainMode || 'list'}` +
+        `${(cfg.chainMode || 'list') === 'auto'
+          ? `   (independent: ${JSON.stringify(cfg.independentProjects || [])})`
+          : `   (chains: ${JSON.stringify(cfg.chainProjects || [])})`}\n` +
         `lastDailyRun:${state.lastDailyRun}\n` +
         `counts:      ${JSON.stringify(counts)}\n`);
       break;

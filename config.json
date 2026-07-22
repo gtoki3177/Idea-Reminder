@@ -11,7 +11,9 @@
   },
   "excludeCwdContains": [],
   "excludeProjects": [],
+  "chainMode": "auto",
   "chainProjects": ["Arcaea hand"],
+  "independentProjects": ["C:\\code stuff"],
   "notify": {
     "enabled": false,
     "ntfyTopicUrl": "",

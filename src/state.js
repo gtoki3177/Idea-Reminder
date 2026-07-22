@@ -137,18 +137,34 @@ function applyDailyBumpIfNeeded(state, todayKey, cfg) {
   return !firstEver;
 }
 
-function matchesChain(cwd, cfg) {
-  if (!cwd) return false;
-  const c = cwd.toLowerCase();
-  return (cfg.chainProjects || []).some(s => s && c.includes(String(s).toLowerCase()));
+function normPath(p) {
+  return String(p || '').replace(/[\\/]+$/, '').toLowerCase();
 }
 
-// Superseded = belongs to a configured chain project AND a newer, still-live
-// session exists in the same project (cwd). You handed off to a later
-// conversation, so this predecessor no longer needs surfacing. Reversible: it
-// re-appears if the newer sibling is archived/dismissed/deleted.
+// Is this cwd governed by hand-off-chain semantics?
+//   chainMode "off"  -> never
+//   chainMode "list" -> only cwds matching a chainProjects substring (default)
+//   chainMode "auto" -> every workspace, EXCEPT exact cwds listed in
+//                       independentProjects (junk-drawer folders whose
+//                       conversations are unrelated ideas, not a chain)
+function isChainCwd(cwd, cfg) {
+  if (!cwd) return false;
+  const mode = cfg.chainMode || 'list';
+  if (mode === 'off') return false;
+  if (mode === 'auto') {
+    const c = normPath(cwd);
+    return !(cfg.independentProjects || []).some(p => p && normPath(p) === c);
+  }
+  const lc = cwd.toLowerCase();
+  return (cfg.chainProjects || []).some(s => s && lc.includes(String(s).toLowerCase()));
+}
+
+// Superseded = its cwd is a chain AND a newer, still-live session exists in
+// the same cwd. You handed off to a later conversation, so this predecessor no
+// longer needs surfacing. Reversible: it re-appears if the newer sibling is
+// archived/dismissed/deleted.
 function isSuperseded(entry, state, cfg) {
-  if (!entry || !matchesChain(entry.cwd, cfg)) return false;
+  if (!entry || !isChainCwd(entry.cwd, cfg)) return false;
   const mine = Date.parse(entry.lastActivity) || 0;
   for (const e of Object.values(state.sessions)) {
     if (e === entry || e.cwd !== entry.cwd) continue;

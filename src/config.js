@@ -18,8 +18,9 @@ const DEFAULTS = {
   },
   excludeCwdContains: [],     // skip sessions whose cwd contains any of these substrings
   excludeProjects: [],        // skip sessions in these encoded project folder names
-  chainProjects: [],          // cwd substrings whose sessions form a handoff chain;
-                              // only the newest live session in each such project stays queued
+  chainMode: 'list',          // "off" | "list" | "auto" — hand-off chain detection
+  chainProjects: [],          // list mode: cwd substrings whose sessions form a chain
+  independentProjects: [],    // auto mode: exact cwds exempt from chaining (junk drawers)
   notify: { enabled: false, ntfyTopicUrl: '', command: '' },
 };
 

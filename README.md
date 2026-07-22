@@ -6,7 +6,7 @@ Resurface **neglected Claude Code conversations** as a weighted daily digest —
 - Once a day you get a digest that asks, per conversation: **continue, archive, dismiss, or snooze?**
 - Neglect one and its **weight climbs** each day, so it pushes harder the longer you ignore it — until you act.
 
-> Tracks **Claude Code** sessions only (for now). How it all works internally: [architecture.md](architecture.md). Sharing it with others: [SHARE.md](SHARE.md).
+> Tracks **Claude Code** sessions only (for now).
 
 ## Requirements
 
@@ -52,7 +52,11 @@ It fires whenever the app is open (or on next launch), then you reply to act on 
 
 ### Handoff chains
 
-If you split one project across many hand-off conversations (each superseding the last), add that project to `chainProjects` so only the **newest live** conversation in it ever appears in the digest — older links auto-hide (reversible; `list --all` shows them). See `config.json` below.
+If you split one project across many hand-off conversations (each superseding the last), chain mode keeps only the **newest live** conversation per workspace in the digest — older links auto-hide (reversible; `list --all` shows them tagged `[superseded]`).
+
+- `chainMode: "auto"` — every workspace chains by itself; list your junk-drawer folders (many unrelated ideas sharing one cwd) in `independentProjects` to exempt them.
+- `chainMode: "list"` (default) — only workspaces matching a `chainProjects` substring chain.
+- `chainMode: "off"` — never.
 
 ### As a Claude Code skill (optional)
 
@@ -75,7 +79,9 @@ Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md`. Then `/idea-
 |---|---|---|
 | `deltaIdle` | `"3d"` | Idle threshold Δt before queuing (`"3d"`, `"12h"`, `"90m"`). |
 | `reportTime` | `"09:00"` | Local time T for the daily report (used by the scheduler). |
-| `chainProjects` | `[]` | cwd substrings that are linear hand-off chains; only the newest live session in each stays queued. |
+| `chainMode` | `"list"` | Hand-off chain detection: `"off"`, `"list"` (only `chainProjects`), or `"auto"` (every workspace except `independentProjects`). |
+| `chainProjects` | `[]` | list mode: cwd substrings that are hand-off chains. |
+| `independentProjects` | `[]` | auto mode: exact cwds exempt from chaining (folders of unrelated one-off ideas). |
 | `maxDetailedItems` | `8` | How many items shown in full per report. |
 | `weights.neglectStep` · `weights.idleFactorPerDay` | `1.0` · `0.05` | Weight added per skipped report · per idle day. |
 | `minMessages` | `1` | Skip sessions with fewer real messages. |

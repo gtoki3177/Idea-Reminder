@@ -1,3 +1,7 @@
 node_modules/
 state/
 *.log
+
+# local-only docs (not published)
+architecture.md
+SHARE.md
