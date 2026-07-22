@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 'use strict';
+const fs = require('fs');
+const path = require('path');
 const { loadConfig } = require('../src/config');
 const { listSessionFiles, parseSession } = require('../src/sessions');
 const S = require('../src/state');
@@ -46,6 +48,20 @@ function notify(cfg, state, now) {
   } catch { /* notifications are best-effort */ }
 }
 
+// One-time migration: state used to live inside the package (state/state.json),
+// which plugin updates and re-clones would wipe.
+function migrateLegacyState(cfg) {
+  try {
+    if (fs.existsSync(cfg.statePath)) return;
+    const legacy = path.join(cfg.pkgRoot, 'state', 'state.json');
+    if (!fs.existsSync(legacy)) return;
+    fs.mkdirSync(path.dirname(cfg.statePath), { recursive: true });
+    fs.copyFileSync(legacy, cfg.statePath);
+    fs.renameSync(legacy, legacy + '.migrated');
+    process.stderr.write(`(state migrated -> ${cfg.statePath})\n`);
+  } catch { /* best-effort; a fresh state is built on next scan anyway */ }
+}
+
 function syncFromDisk(state, cfg, now) {
   const files = listSessionFiles(cfg.projectsDir);
   S.reconcile(state, files, parseSession, cfg, now);
@@ -61,6 +77,7 @@ function main() {
   const cfg = loadConfig();
   const now = Date.now();
   const today = S.dayKey(now);
+  migrateLegacyState(cfg);
   const state = S.loadState(cfg.statePath);
 
   switch (cmd) {

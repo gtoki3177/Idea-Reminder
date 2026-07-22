@@ -15,6 +15,19 @@ Resurface **neglected Claude Code conversations** as a weighted daily digest —
 
 ## Install
 
+### Option A — as a Claude Code plugin (recommended)
+
+In Claude Code:
+
+```
+/plugin marketplace add gtoki3177/Idea-Reminder
+/plugin install idea-reminder@idea-reminder
+```
+
+That's it — `/idea-reminder:review` (or just asking "review my conversations" / "回顧我的對話") runs the interactive digest. The CLI ships inside the plugin; your state and config live in `~/.claude/idea-reminder/` and survive plugin updates.
+
+### Option B — git clone (bare CLI)
+
 ```bash
 git clone https://github.com/gtoki3177/Idea-Reminder.git idea-reminder
 cd idea-reminder
@@ -42,9 +55,11 @@ idea-reminder activate <id...>    # bring an archived/dismissed one back
 
 ### Set up the once-a-day trigger
 
-**Recommended — a Claude Code Desktop scheduled task.** It runs locally, survives restarts, and both updates the queue *and* shows you the digest in-app. Just ask Claude Code to schedule it, pasting the prompt from [`scheduled-task.md`](scheduled-task.md):
+**Recommended — a Claude Code Desktop scheduled task.** It runs locally, survives restarts, and both updates the queue *and* shows you the digest in-app.
 
-> Create a daily scheduled task at 10pm that runs the idea-reminder prompt.
+- **Plugin install:** the task prompt is one line — ask Claude:
+  > Create a daily scheduled task at 10pm whose prompt is: "Invoke the idea-reminder:review skill and follow it through — sync, digest, then ask me what to do with each item."
+- **Git-clone install:** paste the full prompt from [`scheduled-task.md`](scheduled-task.md) instead.
 
 It fires whenever the app is open (or on next launch), then you reply to act on each item. No global skill needed — the task prompt is self-contained.
 
@@ -79,9 +94,9 @@ If you split one project across many hand-off conversations (each superseding th
 - `chainMode: "list"` (default) — only workspaces matching a `chainProjects` substring chain.
 - `chainMode: "off"` — never.
 
-### As a Claude Code skill (optional)
+### As a standalone skill (git-clone installs only)
 
-Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md`. Then `/idea-reminder` (or "回顧我的對話") runs the interactive review on demand.
+The plugin already ships the skill. On a bare git clone, copy `skills/review/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md` to get the same interactive review on demand.
 
 ## Commands
 
@@ -97,7 +112,7 @@ Copy `skill/SKILL.md` to `~/.claude/skills/idea-reminder/SKILL.md`. Then `/idea-
 
 ## Configuration
 
-Config is layered: `config.json` (shipped defaults — leave it alone) ← **`config.local.json`** (your personal overrides, gitignored — put your `chainMode`, `independentProjects`, `excludeTitles` etc. here; same keys, only what you override) ← `$IDEA_REMINDER_CONFIG` (explicit override file). Example `config.local.json`:
+Config is layered, later wins: `config.json` (shipped defaults — leave it alone) ← **`~/.claude/idea-reminder/config.json`** (your overrides — the right place for plugin installs, survives updates) ← `config.local.json` in the repo (gitignored, for git-clone installs) ← `$IDEA_REMINDER_CONFIG`. Put only the keys you override. Example:
 
 ```json
 {
@@ -123,4 +138,4 @@ Config is layered: `config.json` (shipped defaults — leave it alone) ← **`co
 
 ## Data & privacy
 
-Everything is local. `state/state.json` (git-ignored) holds prompt snippets for titles/previews and never leaves your machine. idea reminder **only reads** your session files — it never edits or deletes them.
+Everything is local. State lives in `~/.claude/idea-reminder/state.json` — it holds prompt snippets for titles/previews and never leaves your machine. idea reminder **only reads** your session files — it never edits or deletes them.

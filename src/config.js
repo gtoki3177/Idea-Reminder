@@ -4,6 +4,9 @@ const os = require('os');
 const path = require('path');
 
 const PKG_ROOT = path.resolve(__dirname, '..');
+// Mutable user data lives OUTSIDE the package: plugin installs sit in a cache
+// that updates wipe, and git clones get re-cloned. State must survive both.
+const USER_DIR = path.join(os.homedir(), '.claude', 'idea-reminder');
 
 const DEFAULTS = {
   deltaIdle: '3d',            // idle threshold before a session enters the queue
@@ -57,13 +60,15 @@ function readJsonIfExists(p) {
 
 // Layered config, later layers override earlier ones:
 //   DEFAULTS
-//   <pkg>/config.json          shipped defaults (tracked in git — keep clean)
-//   <pkg>/config.local.json    personal overrides (gitignored)
-//   $IDEA_REMINDER_CONFIG      explicit override file
+//   <pkg>/config.json               shipped defaults (tracked in git — keep clean)
+//   ~/.claude/idea-reminder/config.json   user-global overrides (survives plugin updates)
+//   <pkg>/config.local.json         repo-local personal overrides (gitignored)
+//   $IDEA_REMINDER_CONFIG           explicit override file
 function loadConfig() {
   let cfg = DEFAULTS;
   const layers = [
     path.join(PKG_ROOT, 'config.json'),
+    path.join(USER_DIR, 'config.json'),
     path.join(PKG_ROOT, 'config.local.json'),
     process.env.IDEA_REMINDER_CONFIG,
   ];
@@ -77,9 +82,10 @@ function loadConfig() {
   cfg.configLayers = loaded;
   cfg.configPath = loaded[loaded.length - 1] || path.join(PKG_ROOT, 'config.json');
   cfg.projectsDir = cfg.projectsDir || path.join(os.homedir(), '.claude', 'projects');
-  cfg.statePath = cfg.statePath || path.join(PKG_ROOT, 'state', 'state.json');
+  cfg.userDir = USER_DIR;
+  cfg.statePath = cfg.statePath || path.join(USER_DIR, 'state.json');
   cfg.deltaIdleMs = parseDurationMs(cfg.deltaIdle);
   return cfg;
 }
 
-module.exports = { loadConfig, parseDurationMs, PKG_ROOT };
+module.exports = { loadConfig, parseDurationMs, PKG_ROOT, USER_DIR };

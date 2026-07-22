@@ -1,0 +1,14 @@
+{
+  "name": "idea-reminder",
+  "displayName": "Idea Reminder",
+  "version": "0.2.0",
+  "description": "Resurface neglected Claude conversations as a weighted daily digest — continue, archive, or snooze each one before it rots.",
+  "author": {
+    "name": "ToiletKing",
+    "url": "https://github.com/gtoki3177"
+  },
+  "homepage": "https://github.com/gtoki3177/Idea-Reminder",
+  "repository": "https://github.com/gtoki3177/Idea-Reminder",
+  "license": "MIT",
+  "keywords": ["sessions", "reminder", "digest", "spaced-repetition", "productivity", "ideas"]
+}

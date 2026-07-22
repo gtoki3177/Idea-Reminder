@@ -1,5 +1,9 @@
 # Daily digest — scheduled-task prompt template
 
+> **Plugin install? You don't need this file.** The whole task prompt is one line:
+> *"Invoke the idea-reminder:review skill and follow it through — sync, digest, then ask me what to do with each item."*
+> The template below is for **git-clone (bare CLI)** installs, where no skill is registered.
+
 This is the prompt that drives the daily report. You don't create the task by hand — you **ask Claude Code** to schedule it, and paste this as the task's instructions. Claude stores it as a **Desktop scheduled task** under `~/.claude/scheduled-tasks/<id>/SKILL.md` (runs locally, persists across restarts, fires on next launch if the app was closed).
 
 ## How to set it up
@@ -22,9 +26,9 @@ past Δt and may be dropped work or half-formed ideas.
 
 0. If the ccd_session_mgmt MCP tools are available, call
    mcp__ccd_session_mgmt__list_sessions (include_archived: true, limit: 100),
-   save the returned JSON array verbatim to <repo>/state/desktop-sessions.json
+   save the returned JSON array verbatim to ~/.claude/idea-reminder/desktop-sessions.json
    with the Write tool, then run:
-   idea-reminder sync-desktop "<repo>/state/desktop-sessions.json"
+   idea-reminder sync-desktop "~/.claude/idea-reminder/desktop-sessions.json"
    This mirrors Claude's own archive state into the queue (archived in Claude =
    gone from the digest) and ingests Cowork/desktop conversations. If the MCP
    is unavailable, skip this step.

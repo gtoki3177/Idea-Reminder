@@ -1,0 +1,14 @@
+{
+  "name": "idea-reminder",
+  "owner": {
+    "name": "ToiletKing",
+    "url": "https://github.com/gtoki3177"
+  },
+  "plugins": [
+    {
+      "name": "idea-reminder",
+      "source": "./",
+      "description": "Resurface neglected Claude conversations as a weighted daily digest — continue, archive, or snooze each one before it rots."
+    }
+  ]
+}
