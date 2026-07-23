@@ -1,6 +1,6 @@
 # 💡 idea reminder
 
-Resurface **neglected Claude Code conversations** as a weighted daily digest — so dropped work and half-formed ideas don't rot in your session history.
+Resurface **neglected Claude conversations** — Code sessions, Cowork, and claude.ai chats — as a weighted daily digest, so dropped work and half-formed ideas don't rot in your history.
 
 - After a conversation has been idle for **Δt** (default 3 days), it joins the queue.
 - Once a day you get a digest that asks, per conversation: **continue, archive, dismiss, or snooze?**
@@ -12,6 +12,7 @@ Resurface **neglected Claude Code conversations** as a weighted daily digest —
 
 - **Node.js 18+** (tested on 22) — zero npm dependencies.
 - **Claude Code** (desktop app or CLI) — that's where the sessions and the daily scheduler live.
+- The **desktop app** unlocks the two sync extras: the Code-tab archive mirror (MCP) and the claude.ai chat/cloud-task sync (built-in Browser pane). A bare CLI install still tracks Code + Cowork from disk.
 
 ## Install
 
@@ -65,7 +66,7 @@ idea-reminder activate <id...>    # bring an archived/dismissed one back
 
 It fires whenever the app is open (or on next launch), then you reply to act on each item. (The git-clone prompt is fully self-contained — it doesn't need any skill installed.)
 
-> The MCP sync step (Cowork + Claude-archive mirroring) only works in the **desktop app**, where the `ccd_session_mgmt` MCP exists. Plain-CLI users still get full Claude Code session tracking — the sync step just skips itself.
+> **What syncs where:** Code sessions and Cowork are read from local disk everywhere. Two steps need the **desktop app**: the Code-tab archive mirror (`ccd_session_mgmt` MCP) and the **claude.ai chat + cloud-task sync** (Browser pane). To enable chat sync, **sign in to claude.ai once in the Browser pane** (have Claude open `https://claude.ai` in the browser preview, then log in yourself) — from then on the daily task syncs silently, and skips itself whenever the pane is signed out or unavailable. Plain-CLI users simply get those steps skipped.
 
 ### Permissions — avoid daily prompts
 
@@ -88,7 +89,7 @@ It fires whenever the app is open (or on next launch), then you reply to act on 
 }
 ```
 
-Two approvals can't be pre-granted in settings: the MCP `list_sessions` call and the Write of its output file. Those are remembered **per task** — click **Run now** once after creating the task to grant them, and every later run is fully unattended.
+A few approvals can't be pre-granted in settings: the MCP `list_sessions` call and the Browser-pane tools the chat sync drives. Those are remembered **per task** — click **Run now** once after creating the task to grant them, and every later run is fully unattended.
 
 *(Alternative: `schtasks /Create /SC DAILY /ST 22:00 /TN idea-reminder /TR "node \"<repo>\bin\idea-reminder.js\" scan --daily --notify"` runs the scan even when Claude is fully closed; you review later with `report`.)*
 
@@ -137,7 +138,7 @@ Config is layered, later wins: `config.json` (shipped defaults — leave it alon
 | `chainMode` | `"list"` | Hand-off chain detection: `"off"`, `"list"` (only `chainProjects`), or `"auto"` (every workspace except `independentProjects`). |
 | `chainProjects` | `[]` | list mode: cwd substrings that are hand-off chains. |
 | `independentProjects` | `[]` | auto mode: exact cwds exempt from chaining (folders of unrelated one-off ideas). |
-| `excludeTitles` | `[]` | Desktop sync: skip sessions with these exact titles. **Add your daily digest task's name here** so its own runs don't get tracked. |
+| `excludeTitles` | `[]` | Skip synced sessions with these exact titles. **Add your daily digest task's name and any claude.ai routine names** so automated runs don't get tracked. (Cowork scheduled runs are excluded automatically.) |
 | `maxDetailedItems` | `8` | How many items shown in full per report. |
 | `weights.neglectStep` · `weights.idleFactorPerDay` | `1.0` · `0.05` | Weight added per skipped report · per idle day. |
 | `minMessages` | `1` | Skip sessions with fewer real messages. |
@@ -147,4 +148,4 @@ Config is layered, later wins: `config.json` (shipped defaults — leave it alon
 
 ## Data & privacy
 
-Everything is local. State lives in `~/.claude/idea-reminder/state.json` — it holds prompt snippets for titles/previews and never leaves your machine. idea reminder **only reads** your session files — it never edits or deletes them.
+Everything is local. State lives in `~/.claude/idea-reminder/state.json` — it holds prompt snippets for titles/previews and never leaves your machine. idea reminder **only reads** your session files — it never edits or deletes them. The chat sync reads only your own signed-in claude.ai pages inside the local Browser pane; no tokens are extracted or stored.
