@@ -29,6 +29,42 @@ Commands: `report [--json] [--preview]` · `sync-desktop <json>` · `scan [--dai
 
    This mirrors the **Code tab's** archive state (archived in Claude = gone from the digest). Cowork conversations don't need this step — the CLI scans them straight from disk, app titles and archive state included. If the MCP tool is unavailable (plain CLI), skip silently.
 
+0.5. **claude.ai chat + cloud-task sync** (only when the `mcp__Claude_Browser__*` tools are available): navigate the Browser pane to `https://claude.ai/recents` (use `preview_start` with that url if the pane isn't open). Check `get_page_text` — if it shows a sign-in page, skip this step silently (mention once in the digest that chat sync needs a one-time login in the Browser pane). Otherwise run this with `javascript_tool` exactly as written — it returns ready-made protocol lines:
+
+   ```js
+   (async () => {
+     const timeRe = /ago|yesterday|^[A-Z][a-z]{2} \d{1,2}$|天前|小時前|分鐘前|昨天/i;
+     const org = (await fetch('/api/organizations',{credentials:'include'}).then(r=>r.json()))[0].uuid;
+     const chats = await fetch(`/api/organizations/${org}/chat_conversations?limit=200`,{credentials:'include'}).then(r=>r.json());
+     const lines = chats.map(c => `chat_${c.uuid}|0|${c.updated_at}|https://claude.ai/chat/${c.uuid}|${(c.name||'(untitled)').replace(/\|/g,'/')}`);
+     const best = new Map();
+     document.querySelectorAll('a[href^="/cowork/"]').forEach(a => {
+       const href = a.getAttribute('href');
+       let row = a, title = '', time = '';
+       for (let i = 0; i < 5 && row; i++, row = row.parentElement) {
+         if (!title) { const b = row.querySelector && row.querySelector('[aria-label^="More options for "]'); if (b) title = b.getAttribute('aria-label').replace('More options for ',''); }
+         if (!time && row.innerText) { const l = row.innerText.split('\n').map(s=>s.trim()).find(l => timeRe.test(l) && l.length < 30); if (l) time = l; }
+         if (title && time) break;
+       }
+       const cur = best.get(href) || {title:'',time:''};
+       best.set(href, {title: cur.title || title.replace(/\|/g,'/'), time: cur.time || time});
+     });
+     for (const [href, c] of best) if (c.title) lines.push(`${href.split('/').pop()}|0|${c.time}|https://claude.ai${href}|${c.title}`);
+     return lines.join('\n');
+   })()
+   ```
+
+   Then pipe the returned lines (strip the surrounding quotes; `\n` are real newlines) to the CLI on stdin via a Bash heredoc, same pattern as step 0:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/bin/idea-reminder.js" sync-chat - <<'IDEA_CHAT_EOF'
+   chat_<uuid>|0|2026-07-22T02:02:53Z|https://claude.ai/chat/<uuid>|Some chat title
+   cse_<id>|0|2 days ago|https://claude.ai/cowork/cse_<id>|Some task title
+   IDEA_CHAT_EOF
+   ```
+
+   Conversations archived or deleted on claude.ai disappear from the list and are auto-archived here by absence — no manual bookkeeping. Chat/task items can't be resumed from CLI; the digest shows their claude.ai URL instead.
+
 1. **Get the digest**: run `report --json` (reflects fresh on-disk state and applies the once-per-day weight bump). Use `report --preview` if the user only wants to peek without counting it as today's report.
 
 2. **Present it in the user's language.** For each item in `shown`:

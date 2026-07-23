@@ -52,6 +52,7 @@ function projectLabel(entry) {
 }
 
 function resumeCommand(entry, locale) {
+  if (entry.source === 'chat') return entry.cwd || 'https://claude.ai/recents'; // cwd carries the URL
   if (String(entry.id).startsWith('local_') || entry.source === 'desktop' || entry.source === 'cowork') {
     return t(locale).desktopResume(((entry.titleOverride || entry.title) || '').slice(0, 40));
   }

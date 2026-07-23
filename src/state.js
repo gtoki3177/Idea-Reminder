@@ -97,9 +97,10 @@ function reconcile(state, files, parseFn, cfg, now) {
   }
 
   // Drop sessions that no longer exist on disk (deleted in Claude).
-  // Desktop-sourced entries (from sync-desktop) have no jsonl file: keep them.
+  // desktop/chat-sourced entries have no local file: keep them.
   for (const id of Object.keys(state.sessions)) {
-    if (!present.has(id) && state.sessions[id].source !== 'desktop') delete state.sessions[id];
+    const src = state.sessions[id].source;
+    if (!present.has(id) && src !== 'desktop' && src !== 'chat') delete state.sessions[id];
   }
 
   // Desktop-sourced entries run the same lifecycle (queue/idle/snooze/resume).
@@ -296,8 +297,68 @@ function syncDesktop(state, entries, cfg, now) {
   return out;
 }
 
+// --- claude.ai (web chat + cloud task) sync ---------------------------------
+// `entries` come from the browser: chats via the in-page conversations API
+// (exact updated_at), cloud tasks scraped from /recents (relative times).
+// [{id: "chat_<uuid>"|"cse_<id>", archived, lastActivityAt, url, title}]
+// Archived/deleted conversations simply disappear from the list, so entries
+// previously synced but absent from this batch are archived ("claude-archived")
+// — reversible: they flip back if they reappear.
+function syncChat(state, entries, cfg, now) {
+  const out = { upserted: 0, archivedByFlag: 0, archivedByAbsence: 0, unarchived: 0, skipped: 0 };
+  const isExcluded = t => (cfg.excludeTitles || []).some(x => x && String(t || '').trim() === String(x).trim());
+  const seen = new Set();
+
+  for (const d of entries || []) {
+    if (!d || !d.id) continue;
+    if (isExcluded(d.title)) { out.skipped++; continue; }
+    seen.add(d.id);
+    let e = state.sessions[d.id];
+    if (!e) {
+      e = state.sessions[d.id] = {
+        id: d.id, source: 'chat', status: 'tracking',
+        neglectCount: 0, weight: 0, queuedAt: null, queuedAtActivity: null,
+        lastReportDate: null, snoozeUntil: null, resolvedReason: null,
+        resolvedAt: null, notes: null, messageCount: 0, sizeKB: 0,
+        firstPrompt: '', lastUserText: '', firstActivity: d.lastActivityAt || null,
+      };
+    }
+    e.source = 'chat';
+    e.project = d.id.startsWith('cse_') ? 'claude.ai task' : 'claude.ai chat';
+    e.title = d.title || e.title || '(untitled)';
+    e.cwd = d.url || e.cwd || '';           // report renders this as the resume link
+    e.lastActivity = d.lastActivityAt || e.lastActivity;
+    out.upserted++;
+
+    if (d.archived && e.status !== 'archived' && e.status !== 'dismissed') {
+      e.status = 'archived';
+      e.resolvedReason = 'claude-archived';
+      e.resolvedAt = new Date(now).toISOString();
+      out.archivedByFlag++;
+    } else if (!d.archived && e.status === 'archived' && e.resolvedReason === 'claude-archived') {
+      e.status = 'tracking';
+      e.resolvedReason = null;
+      e.resolvedAt = null;
+      out.unarchived++;
+    }
+    applyLifecycle(e, cfg, now);
+  }
+
+  // Absent from this sync -> archived (or deleted) on claude.ai.
+  for (const e of Object.values(state.sessions)) {
+    if (e.source !== 'chat' || seen.has(e.id)) continue;
+    if (e.status !== 'archived' && e.status !== 'dismissed') {
+      e.status = 'archived';
+      e.resolvedReason = 'claude-archived';
+      e.resolvedAt = new Date(now).toISOString();
+      out.archivedByAbsence++;
+    }
+  }
+  return out;
+}
+
 module.exports = {
   loadState, saveState, dayKey, reconcile,
   applyDailyBumpIfNeeded, computeWeight, queuedItems, isSuperseded,
-  syncDesktop,
+  syncDesktop, syncChat,
 };

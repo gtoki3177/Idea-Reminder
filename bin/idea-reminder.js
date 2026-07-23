@@ -50,6 +50,36 @@ function notify(cfg, state, now) {
   } catch { /* notifications are best-effort */ }
 }
 
+// Parse claude.ai's rendered times: exact ISO, or relative English/Chinese
+// ("2 days ago", "yesterday", "Jul 14", "3 天前", "昨天"). Unparseable -> now
+// (safe: the entry just won't queue until a later sync gives a real time).
+const MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+function parseWhen(s, now) {
+  if (!s) return now;
+  const iso = Date.parse(s);
+  if (!isNaN(iso)) return iso;
+  const t = s.toLowerCase();
+  let m;
+  if ((m = /^(\d+)\s*(minute|hour|day|week|month)s?\s*ago$/.exec(t))) {
+    const unit = { minute: 60e3, hour: 3600e3, day: 86400e3, week: 7 * 86400e3, month: 30 * 86400e3 }[m[2]];
+    return now - Number(m[1]) * unit;
+  }
+  if ((m = /^(\d+)\s*(分鐘|小時|天|週|个?月|個月)前$/.exec(s))) {
+    const unit = { '分鐘': 60e3, '小時': 3600e3, '天': 86400e3, '週': 7 * 86400e3, '月': 30 * 86400e3, '个月': 30 * 86400e3, '個月': 30 * 86400e3 }[m[2]];
+    return now - Number(m[1]) * (unit || 86400e3);
+  }
+  if (t === 'yesterday' || s === '昨天') return now - 86400e3;
+  if (t === 'just now' || s === '剛剛') return now;
+  if ((m = /^([a-z]{3})\s+(\d{1,2})$/.exec(t)) && MONTHS[m[1]] !== undefined) {
+    const d = new Date(now);
+    d.setMonth(MONTHS[m[1]], Number(m[2]));
+    d.setHours(12, 0, 0, 0);
+    if (d.getTime() > now) d.setFullYear(d.getFullYear() - 1); // "Dec 30" seen in January
+    return d.getTime();
+  }
+  return now;
+}
+
 // One-time migration: state used to live inside the package (state/state.json),
 // which plugin updates and re-clones would wipe.
 function migrateLegacyState(cfg) {
@@ -175,6 +205,35 @@ function main() {
       break;
     }
 
+    case 'sync-chat': {
+      // Line protocol on stdin ('-'/no arg) or a file:
+      //   id|archived(1/0)|when|url|title
+      // `when` may be exact ISO or the relative text claude.ai renders
+      // ("2 days ago", "yesterday", "Jul 14", "3 天前", ...).
+      const src = pos[0] && pos[0] !== '-' ? pos[0] : 0;
+      const raw = fs.readFileSync(src, 'utf8');
+      const entries = [];
+      for (const line of raw.split('\n')) {
+        const t = line.trim();
+        if (!t) continue;
+        const p = t.split('|');
+        if (p.length < 5) continue;
+        entries.push({
+          id: p[0].trim(),
+          archived: p[1].trim() === '1' || /^true$/i.test(p[1].trim()),
+          lastActivityAt: new Date(parseWhen(p[2].trim(), now)).toISOString(),
+          url: p[3].trim(),
+          title: p.slice(4).join('|').trim(),
+        });
+      }
+      const r = S.syncChat(state, entries, cfg, now);
+      S.saveState(cfg.statePath, state, now);
+      process.stdout.write(
+        `sync-chat: ${entries.length} entries · upserted ${r.upserted} · archived ` +
+        `${r.archivedByFlag}+${r.archivedByAbsence}(absent) · unarchived ${r.unarchived} · skipped ${r.skipped}\n`);
+      break;
+    }
+
     case 'archive':
     case 'dismiss':
     case 'activate': {
@@ -240,6 +299,8 @@ function main() {
         `  list [--all]                one line per queued (or all) session\n` +
         `  sync-desktop [-|<json>]     mirror the Code tab's archive state from ccd list_sessions\n` +
         `                              MCP output (stdin with '-'/no arg, or a file path)\n` +
+        `  sync-chat [-|<file>]        sync claude.ai web chats + cloud tasks from browser-collected\n` +
+        `                              lines: id|archived|when|url|title (relative times ok)\n` +
         `  archive <id...>             keep as reference, stop reminding (accepts several ids)\n` +
         `  dismiss <id...>             drop from reminders (accepts several ids)\n` +
         `  activate <id...>            bring archived/dismissed ones back\n` +

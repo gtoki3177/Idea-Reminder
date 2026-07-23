@@ -6,7 +6,7 @@ Resurface **neglected Claude Code conversations** as a weighted daily digest —
 - Once a day you get a digest that asks, per conversation: **continue, archive, dismiss, or snooze?**
 - Neglect one and its **weight climbs** each day, so it pushes harder the longer you ignore it — until you act.
 
-> Tracks **Claude Code** sessions and **Cowork** conversations straight from local disk — with the app's real titles and archive state, so anything you archived in Claude stays quiet. The Code tab's archive state additionally syncs via the desktop MCP (`sync-desktop`, run by the daily task). Not covered: **remote/cloud Cowork runs** and claude.ai **web chat** (neither leaves local files).
+> Tracks **all three surfaces**: **Claude Code** sessions and **Cowork** conversations straight from local disk (real titles + archive state), and **claude.ai web chats + cloud tasks** via the built-in Browser pane using your own signed-in session (one-time login in the pane; the daily task then syncs titles + last-activity and auto-archives whatever you archive on claude.ai). No export ZIPs, no third-party APIs, nothing leaves your machine.
 
 ## Requirements
 
@@ -111,7 +111,8 @@ The plugin already ships the skill. On a bare git clone, copy `skills/review/SKI
 | `report [--json] [--preview]` | The daily digest (default). `--preview` = don't count it as today's report. |
 | `scan [--daily] [--notify]` | Rescan disk, reconcile state. `--daily` bumps neglect once/day; `--notify` sends the notification. |
 | `list [--all]` | One line per queued session (`--all` = every session, superseded ones tagged). |
-| `sync-desktop <json>` | Sync from a saved `list_sessions` MCP output: mirrors Claude's archive state onto matched sessions and ingests Cowork/desktop conversations. The daily task does this automatically. |
+| `sync-desktop [-\|<json>]` | Mirror the Code tab's archive state from `list_sessions` MCP output (stdin or file). The daily task does this automatically. |
+| `sync-chat [-\|<file>]` | Sync claude.ai web chats + cloud tasks from browser-collected lines (`id\|archived\|when\|url\|title`; relative times ok). The daily task does this automatically when the Browser pane is signed in. |
 | `archive / dismiss / activate <id...>` | Resolve (or un-resolve) one or several sessions. |
 | `snooze <id> [days=3]` · `note <id> <text>` · `resume-cmd <id>` | Hide for N days · attach a note · print the resume command. |
 | `status` | Show config, paths, chain projects, and counts. |
